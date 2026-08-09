@@ -1,6 +1,6 @@
 name: astrbot_plugin_fortune_wheel
 display_name: 大礼包轮盘
-version: v1.0.6
+version: v1.0.7
 author: iMuli
 category: 娱乐
 short_desc: /大礼包 弹出轮盘随机禁言，支持投票解禁、诅咒转移、求饶系统

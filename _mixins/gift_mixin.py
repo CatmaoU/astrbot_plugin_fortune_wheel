@@ -33,7 +33,7 @@ class GiftMixin:
         target_user_name = sender_name
         is_help_gift = False
         is_help_gift_attempt = False
-        is_help_gift_failed = False  # ★ 新增：标志是否替别人失败
+        is_help_gift_failed = False
         penalty_multiplier = 1
 
         for comp in event.message_obj.message:
@@ -64,7 +64,7 @@ class GiftMixin:
             except Exception:
                 target_user_name = str(target_user_id)
 
-            # ★ 检查目标用户是否已被禁言
+            # 检查目标用户是否已被禁言
             muted_list = await self.cache_mgr.get_muted(group_id)
             for muted in muted_list:
                 if muted["user_id"] == target_user_id:
@@ -90,10 +90,10 @@ class GiftMixin:
             sender_is_admin = await is_user_admin(event.bot, group_id, sender_id, self.global_admins)
             if not sender_is_admin:
                 if random.random() >= self.help_gift_success_rate:
-                    # ★ 失败：惩罚自己，加倍禁言，标记失败
+                    # 失败：惩罚自己，加倍禁言，标记失败
                     target_user_id = sender_id
                     is_help_gift = False
-                    is_help_gift_failed = True  # ★ 标记失败
+                    is_help_gift_failed = True
                     penalty_multiplier = self.help_gift_penalty_multiplier
                     # target_user_name 保留为原始目标（被替的人）
 
@@ -222,7 +222,7 @@ class GiftMixin:
                     "pardon": self.pardon_command
                 }
 
-            reply = self.get_message(key, **msg_kwargs)
+            reply = self.get_message(key, default="禁言已执行喵！", **msg_kwargs)
             if curse_msg:
                 reply = curse_msg + "\n" + reply
             yield event.plain_result(reply)
@@ -395,7 +395,7 @@ class GiftMixin:
                         "pardon": self.pardon_command
                     }
 
-                reply = self.get_message(key, **msg_kwargs)
+                reply = self.get_message(key, default="禁言已执行喵！", **msg_kwargs)
                 if curse_msg:
                     reply = curse_msg + "\n" + reply
                 yield event.plain_result(reply)

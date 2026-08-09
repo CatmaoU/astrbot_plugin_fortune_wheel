@@ -31,7 +31,7 @@ from ._mixins.unmute_mixin import UnmuteMixin
     "astrbot_plugin_fortune_wheel",
     "iMuli",
     "大礼包轮盘",
-    "1.0.6"
+    "1.0.7"
 )
 class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteMixin, PetitionMixin, UnmuteMixin):
     def __init__(self, context: Context, **kwargs):
@@ -132,7 +132,17 @@ class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteM
                 logger.warning("[缓存] 自动刷新已禁用（无 Bot 实例）")
 
     def get_message(self, key: str, default: str = "", **kwargs) -> str:
-        """重写消息获取，统一使用 MessageManager"""
+        """重写消息获取：优先从根配置读取，再从 message_templates 中读取"""
+        raw_cfg = self.config_manager.load_config()
+        # 1. 优先从根配置获取（用于 mute_success_template 等）
+        template = raw_cfg.get(key)
+        if template is not None and isinstance(template, str):
+            try:
+                return template.format(**kwargs)
+            except KeyError as e:
+                logger.warning(f"根消息模板 {key} 缺少占位符: {e}")
+                return template
+        # 2. 否则从 message_templates 中获取
         return self.message_mgr.get_message(key, default, **kwargs)
 
     def _load_help(self) -> str:
