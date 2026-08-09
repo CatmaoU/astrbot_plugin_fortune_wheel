@@ -33,6 +33,7 @@ class GiftMixin:
         target_user_name = sender_name
         is_help_gift = False
         is_help_gift_attempt = False
+        is_help_gift_failed = False  # ★ 新增：标志是否替别人失败
         penalty_multiplier = 1
 
         for comp in event.message_obj.message:
@@ -63,6 +64,15 @@ class GiftMixin:
             except Exception:
                 target_user_name = str(target_user_id)
 
+            # ★ 检查目标用户是否已被禁言
+            muted_list = await self.cache_mgr.get_muted(group_id)
+            for muted in muted_list:
+                if muted["user_id"] == target_user_id:
+                    yield event.plain_result(
+                        self.get_message("help_gift_target_muted", target=target_user_name, default="放过 @{target} 吧喵！已经很惨了喵！")
+                    )
+                    return
+
             if not self.help_gift_enabled:
                 yield event.plain_result(self.get_message("help_gift_disabled", default="替别人使用大礼包功能已关闭喵～"))
                 return
@@ -77,12 +87,15 @@ class GiftMixin:
                 args = [args[0]] + params
                 yield event.plain_result(self.get_message("help_gift_curse_warning", default="你现在诅咒缠身喔！不能规避诅咒喵！"))
 
-            # 判断发送者是否为管理员，若是则跳过概率判定（必定成功）
             sender_is_admin = await is_user_admin(event.bot, group_id, sender_id, self.global_admins)
             if not sender_is_admin:
                 if random.random() >= self.help_gift_success_rate:
-                    yield event.plain_result(self.get_message("help_gift_fail", default="老大你替别人使用大礼包失败了喵！"))
-                    return
+                    # ★ 失败：惩罚自己，加倍禁言，标记失败
+                    target_user_id = sender_id
+                    is_help_gift = False
+                    is_help_gift_failed = True  # ★ 标记失败
+                    penalty_multiplier = self.help_gift_penalty_multiplier
+                    # target_user_name 保留为原始目标（被替的人）
 
         # ========== 诅咒处理 ==========
         curse_msg = ""
@@ -148,7 +161,7 @@ class GiftMixin:
                 yield event.plain_result(self.get_message("mute_time_zero", default="禁言时间必须大于 0 分钟喵。"))
                 return
 
-            final_minutes = mute_minutes * penalty_multiplier   # ★ 应用惩罚倍率
+            final_minutes = mute_minutes * penalty_multiplier
             if final_minutes == 0:
                 yield event.plain_result(self.get_message("mute_participation", default="你抽中了重在参与！什么都不会发生喵～"))
                 return
@@ -161,7 +174,6 @@ class GiftMixin:
                     yield event.plain_result(self.get_message("mute_failed_general", error=err, default="大礼包发放失败喵：{error}"))
                 return
 
-            # 记录抽奖历史
             prize_name = f"{mute_minutes}分钟"
             self.lottery_history.add_record(
                 user_id=target_user_id,
@@ -172,8 +184,9 @@ class GiftMixin:
 
             await self.curse_mgr.add_mute_duration(group_id, target_user_id, final_minutes)
 
-            if is_help_gift and penalty_multiplier > 1:
-                key = "mute_success_help_penalty"
+            # ★★★ 消息模板选择 ★★★
+            if is_help_gift_failed:
+                key = "mute_success_penalty"
             elif is_help_gift:
                 key = "mute_success_help"
             elif penalty_multiplier > 1:
@@ -181,13 +194,35 @@ class GiftMixin:
             else:
                 key = "mute_success_template"
 
-            reply = self.get_message(key,
-                user=target_user_name,
-                prob="100.00000%",
-                duration=format_duration(final_minutes),
-                bot=self.bot_name,
-                pardon=self.pardon_command
-            )
+            if key == "mute_success_penalty":
+                msg_kwargs = {
+                    "user": sender_name,
+                    "target": target_user_name,
+                    "prob": "100.00000%",
+                    "duration": format_duration(final_minutes),
+                    "bot": self.bot_name,
+                    "pardon": self.pardon_command,
+                    "multiplier": penalty_multiplier
+                }
+            elif key == "mute_success_help":
+                msg_kwargs = {
+                    "user": target_user_name,
+                    "target": target_user_name,
+                    "prob": "100.00000%",
+                    "duration": format_duration(final_minutes),
+                    "bot": self.bot_name,
+                    "pardon": self.pardon_command
+                }
+            else:
+                msg_kwargs = {
+                    "user": target_user_name,
+                    "prob": "100.00000%",
+                    "duration": format_duration(final_minutes),
+                    "bot": self.bot_name,
+                    "pardon": self.pardon_command
+                }
+
+            reply = self.get_message(key, **msg_kwargs)
             if curse_msg:
                 reply = curse_msg + "\n" + reply
             yield event.plain_result(reply)
@@ -311,7 +346,6 @@ class GiftMixin:
                     yield event.plain_result(self.get_message("mute_failed_general", error=err, default="大礼包发放失败喵：{error}"))
                 return
 
-            # ★ 记录抽奖历史
             if success:
                 self.lottery_history.add_record(
                     user_id=target_user_id,
@@ -323,8 +357,9 @@ class GiftMixin:
             await self.curse_mgr.add_mute_duration(group_id, target_user_id, final_minutes)
 
             if self.show_mute_msg:
-                if is_help_gift and penalty_multiplier > 1:
-                    key = "mute_success_help_penalty"
+                # ★★★ 消息模板选择 ★★★
+                if is_help_gift_failed:
+                    key = "mute_success_penalty"
                 elif is_help_gift:
                     key = "mute_success_help"
                 elif penalty_multiplier > 1:
@@ -332,13 +367,35 @@ class GiftMixin:
                 else:
                     key = "mute_success_template"
 
-                reply = self.get_message(key,
-                    user=target_user_name,
-                    prob=prob_str,
-                    duration=format_duration(final_minutes),
-                    bot=self.bot_name,
-                    pardon=self.pardon_command
-                )
+                if key == "mute_success_penalty":
+                    msg_kwargs = {
+                        "user": sender_name,
+                        "target": target_user_name,
+                        "prob": prob_str,
+                        "duration": format_duration(final_minutes),
+                        "bot": self.bot_name,
+                        "pardon": self.pardon_command,
+                        "multiplier": penalty_multiplier
+                    }
+                elif key == "mute_success_help":
+                    msg_kwargs = {
+                        "user": target_user_name,
+                        "target": target_user_name,
+                        "prob": prob_str,
+                        "duration": format_duration(final_minutes),
+                        "bot": self.bot_name,
+                        "pardon": self.pardon_command
+                    }
+                else:
+                    msg_kwargs = {
+                        "user": target_user_name,
+                        "prob": prob_str,
+                        "duration": format_duration(final_minutes),
+                        "bot": self.bot_name,
+                        "pardon": self.pardon_command
+                    }
+
+                reply = self.get_message(key, **msg_kwargs)
                 if curse_msg:
                     reply = curse_msg + "\n" + reply
                 yield event.plain_result(reply)

@@ -9,6 +9,11 @@ class PetitionMixin:
     """求情功能：替他人解除禁言，自己承担一半时间"""
     
     async def petition_logic(self, event):
+        # ★ 检查求情系统是否启用
+        if not getattr(self, 'petition_enabled', True):
+            yield event.plain_result("求情系统目前已关闭喵～")
+            return
+
         group_id = event.message_obj.group_id
         if not group_id:
             yield event.plain_result(self.get_message("petition_group_only", default="此指令仅可在群聊中使用喵"))

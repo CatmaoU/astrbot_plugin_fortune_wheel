@@ -123,7 +123,7 @@
   },
   "help_gift_penalty_multiplier": {
     "type": "float",
-    "default": 2.0,
+    "default": 1.0,
     "description": "替别人使用大礼包失败时，禁言时间翻倍倍率"
   },
   "bot_name": {
@@ -186,34 +186,34 @@
     "editor_mode": true,
     "editor_language": "text",
     "description": "大礼包成功消息:",
-    "default": "恭喜 @{user} 抽中大礼包喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+    "default": "恭喜{user}抽中大礼包喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
   },
   "mute_success_penalty": {
     "type": "text",
     "editor_mode": true,
     "editor_language": "text",
     "description": "替别人使用失败消息:",
-    "default": "由于替 @{user} 使用失败，你被惩罚加倍禁言喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+    "default": "由于替{target}使用失败，{user}被惩罚加倍禁言喵！\n概率：{prob}\n禁言时长：{duration} - {multiplier}倍时间惩罚\n害人害己喵，好好度过这个时间喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
   },
   "mute_success_help": {
     "type": "text",
     "editor_mode": true,
     "editor_language": "text",
     "description": "替别人使用成功消息:",
-    "default": "替 @{user} 使用大礼包成功喵！\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+    "default": "替{target}使用大礼包成功喵！\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
   },
   "mute_success_help_penalty": {
     "type": "text",
     "editor_mode": true,
     "editor_language": "text",
-    "description": "替别人使用成功但自己承担加倍禁言:",
-    "default": "替 @{user} 使用大礼包成功喵！\n但 @{user} 身上的诅咒反弹给了你，你被惩罚加倍禁言喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+    "description": "替别人使用成功但自己承担诅咒加倍禁言:",
+    "default": "替{target}使用大礼包成功喵！\n但{target}身上的诅咒反弹给了{user}，受到惩罚加倍禁言喵！\n概率：{prob}\n禁言时长：{duration} - {multiplier}倍时间惩罚\n害人害己喵，好好度过这个时间喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
   },
   "message_templates": {
     "type": "dict",
     "description": "其他消息模板:",
     "default": {
-      "mute_participation": "你抽中了重在参与喵！什么都不会发生喵～",
+      "mute_participation": "抽中了重在参与喵！什么都不会发生喵～",
       "mute_failed_admin": "老大凑什么热闹喵！管理员不可用玩喵～",
       "mute_failed_general": "大礼包发放失败喵：{error}",
       "mute_time_zero": "禁言时间必须大于 0 分钟喵。",
@@ -285,6 +285,7 @@
       "help_gift_disabled": "替别人使用大礼包功能已关闭喵～",
       "help_gift_admin_target": "不能对管理员使用大礼包喵～",
       "help_gift_curse_warning": "你现在诅咒缠身喔！不能规避诅咒喵！",
+      "help_gift_target_muted": "放过 @{target} 吧喵！已经很惨了喵！",
       "admin_unmute_all_start": "正在解除 {total} 位用户的禁言喵～",
       "admin_unmute_all_success": "全部解除完成！成功 {success} 人喵～",
       "admin_unmute_all_fail": "，失败 {fail} 人：{details}",
