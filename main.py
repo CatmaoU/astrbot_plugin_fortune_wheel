@@ -31,7 +31,7 @@ from ._mixins.unmute_mixin import UnmuteMixin
     "astrbot_plugin_fortune_wheel",
     "iMuli",
     "大礼包轮盘",
-    "1.0.5"
+    "1.0.6"
 )
 class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteMixin, PetitionMixin, UnmuteMixin):
     def __init__(self, context: Context, **kwargs):
@@ -130,6 +130,10 @@ class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteM
                 logger.info("[缓存] 自动刷新已禁用（间隔设为0）")
             else:
                 logger.warning("[缓存] 自动刷新已禁用（无 Bot 实例）")
+
+    def get_message(self, key: str, default: str = "", **kwargs) -> str:
+        """重写消息获取，统一使用 MessageManager"""
+        return self.message_mgr.get_message(key, default, **kwargs)
 
     def _load_help(self) -> str:
         return HelpMixin._load_help(self)
