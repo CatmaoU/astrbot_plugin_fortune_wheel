@@ -1,0 +1,320 @@
+{
+  "global_admins": {
+    "type": "list",
+    "default": [],
+    "description": "全局管理员"
+  },
+  "enable_participation_prize": {
+    "type": "bool",
+    "default": true,
+    "description": "是否启用‘重在参与’关闭后该奖品不会出现在轮盘中"
+  },
+  "daily_lottery_limit": {
+    "type": "int",
+    "default": -1,
+    "description": "每日抽奖次数限制（-1 表示无限制）"
+  },
+  "command_cooldown_seconds": {
+    "type": "float",
+    "default": 15.0,
+    "description": "每个用户使用 /大礼包 的冷却时间（秒）"
+  },
+  "group_mode": {
+    "type": "string",
+    "default": "黑名单",
+    "description": "过滤模式",
+    "options": ["黑名单", "白名单"]
+  },
+  "group_list": {
+    "type": "list",
+    "default": [],
+    "description": "群组列表"
+  },
+  "wheel_items": {
+    "type": "list",
+    "default": [
+      "1分钟:800",
+      "2-10分钟:370",
+      "11-60分钟:190",
+      "1-6小时:70",
+      "6-24小时:40.5",
+      "1-6天:2.2",
+      "6-10天:1.7",
+      "10-20天:0.03",
+      "20-30天:0.01",
+      "重在参与:400"
+    ],
+    "description": "轮盘奖项配置|格式：[奖品名称:权重]"
+  },
+  "show_arrow": {
+    "type": "bool",
+    "default": false,
+    "description": "轮盘指针是否显示"
+  },
+  "enable_sub_wheel": {
+    "type": "bool",
+    "default": true,
+    "description": "是否启用二级细化轮盘"
+  },
+  "show_mute_msg": {
+    "type": "bool",
+    "default": true,
+    "description": "是否发送详细的中奖文字信息"
+  },
+  "main_wheel_duration": {
+    "type": "float",
+    "default": 7.0,
+    "description": "主轮盘旋转动画总时长（秒）"
+  },
+  "sub_wheel_duration": {
+    "type": "float",
+    "default": 3.0,
+    "description": "二级轮盘旋转动画总时长（秒）"
+  },
+  "main_wheel_delay": {
+    "type": "float",
+    "default": 6.5,
+    "description": "主轮盘后续执行延迟（秒）"
+  },
+  "sub_wheel_delay": {
+    "type": "float",
+    "default": 3.0,
+    "description": "二级轮盘后续执行延迟（秒）"
+  },
+  "mute_delay": {
+    "type": "float",
+    "default": 1.5,
+    "description": "执行最终禁言前延迟（秒）"
+  },
+  "gif_loop": {
+    "type": "bool",
+    "default": false,
+    "description": "动图是否循环播放"
+  },
+  "auto_sync_interval": {
+    "type": "int",
+    "default": 300,
+    "description": "自动刷新缓存间隔（秒），设为0则禁用"
+  },
+  "pardon_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "是否开启求饶系统（可通过私聊bot /求饶 尝试解除禁言）"
+  },
+  "pardon_stages": {
+    "type": "list",
+    "default": ["1:12.5", "2:25", "3:50"],
+    "description": "求饶次数与对应成功率，格式：[次数:概率]"
+  },
+  "petition_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "是否开启求情系统（可通过 /求情 替他人解除禁言）"
+  },
+  "help_gift_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "是否允许替别人使用大礼包（/大礼包 @用户）"
+  },
+  "help_gift_success_rate": {
+    "type": "float",
+    "default": 0.15,
+    "description": "替别人使用大礼包的成功概率（0-1）"
+  },
+  "help_gift_penalty_multiplier": {
+    "type": "float",
+    "default": 2.0,
+    "description": "替别人使用大礼包失败时，禁言时间翻倍倍率"
+  },
+  "bot_name": {
+    "type": "string",
+    "default": "小鱼喵",
+    "description": "机器人显示名字"
+  },
+  "vote_required_agree": {
+    "type": "int",
+    "default": 2,
+    "description": "解禁投票通过所需最小同意票数"
+  },
+  "vote_duration_seconds": {
+    "type": "int",
+    "default": 120,
+    "description": "投票持续时间（秒）"
+  },
+  "curse_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "是否启用诅咒功能"
+  },
+  "curse_transfer_success_rate": {
+    "type": "float",
+    "default": 0.5,
+    "description": "诅咒转移成功率（0-1）"
+  },
+  "curse_max_marks": {
+    "type": "int",
+    "default": 5,
+    "description": "最大诅咒标记数（超过后触发高级诅咒）"
+  },
+  "curse_trigger_base_prob": {
+    "type": "float",
+    "default": 5.0,
+    "description": "触发诅咒的基础概率（%）"
+  },
+  "curse_trigger_prob_increment": {
+    "type": "float",
+    "default": 10.0,
+    "description": "每个标记增加的概率（%）"
+  },
+  "curse_low_weight_bonus": {
+    "type": "float",
+    "default": 20.0,
+    "description": "高级诅咒每次增加的低权重物品权重值"
+  },
+  "curse_trigger_weight_bonus": {
+    "type": "float",
+    "default": 50.0,
+    "description": "触发诅咒时所有奖池额外增加的权重值"
+  },
+  "curse_daily_limit": {
+    "type": "int",
+    "default": 1,
+    "description": "每天可使用 /诅咒 的次数"
+  },
+  "mute_success_template": {
+    "type": "text",
+    "editor_mode": true,
+    "editor_language": "text",
+    "description": "大礼包成功消息:",
+    "default": "恭喜 @{user} 抽中大礼包喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+  },
+  "mute_success_penalty": {
+    "type": "text",
+    "editor_mode": true,
+    "editor_language": "text",
+    "description": "替别人使用失败消息:",
+    "default": "由于替 @{user} 使用失败，你被惩罚加倍禁言喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+  },
+  "mute_success_help": {
+    "type": "text",
+    "editor_mode": true,
+    "editor_language": "text",
+    "description": "替别人使用成功消息:",
+    "default": "替 @{user} 使用大礼包成功喵！\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+  },
+  "mute_success_help_penalty": {
+    "type": "text",
+    "editor_mode": true,
+    "editor_language": "text",
+    "description": "替别人使用成功但自己承担加倍禁言:",
+    "default": "替 @{user} 使用大礼包成功喵！\n但 @{user} 身上的诅咒反弹给了你，你被惩罚加倍禁言喵！\n概率：{prob}\n禁言时长：{duration}\n请安静享受这段美好时光喵～\n私聊{bot}发送/{pardon}---有概率解除禁言喵～"
+  },
+  "message_templates": {
+    "type": "dict",
+    "description": "其他消息模板:",
+    "default": {
+      "mute_participation": "你抽中了重在参与喵！什么都不会发生喵～",
+      "mute_failed_admin": "老大凑什么热闹喵！管理员不可用玩喵～",
+      "mute_failed_general": "大礼包发放失败喵：{error}",
+      "mute_time_zero": "禁言时间必须大于 0 分钟喵。",
+      "mute_range_invalid": "参数范围无效喵～",
+      "mute_range_format": "参数格式错误喵～",
+      "curse_trigger": "诅咒触发！所有奖品权重 +{bonus}（已清空所有诅咒标记）喵～",
+      "curse_no_trigger": "本次未触发诅咒（剩余 {marks} 个标记，概率继续累积）喵～",
+      "curse_global": "全局诅咒触发！你继承了 {total} 个诅咒标记喵～",
+      "curse_global_empty": "全局诅咒触发！但当前累计次数为 0，没有标记可继承喵～",
+      "curse_mark_status": "当前诅咒标记：{marks} 个，触发概率 {prob:.1f}%",
+      "curse_low_bonus": "本群低权重物品累计加成 +{bonus}",
+      "curse_disabled": "诅咒功能已关闭喵～",
+      "curse_group_only": "此指令仅可在群聊中使用喵",
+      "curse_daily_limit": "你今天已使用 /诅咒 {limit} 次，已达到上限喵～",
+      "curse_transfer_success": "诅咒已转移给 @{target} ({id})，当前标记数增加喵！",
+      "curse_transfer_success_high": "\n触发高级诅咒！低权重物品权重 +{bonus}",
+      "curse_transfer_fail": "诅咒转移失败！反弹到自己身上 @{user}，你被添加了一个诅咒标记喵！",
+      "curse_global_set": "已设置全局诅咒，下一个使用 `/大礼包` 的人将继承所有累计标记喵！",
+      "curse_global_status_active": "全局诅咒：已激活（下一个使用 /大礼包 的人会继承所有累计标记）",
+      "curse_global_status_inactive": "全局诅咒：未激活",
+      "curse_no_data": "当前群无任何诅咒数据喵～",
+      "curse_ranking_title": "本群诅咒排行榜（按标记数降序）：",
+      "curse_ranking_no_data": "本群暂无诅咒数据喵～",
+      "curse_ranking_item": "{idx}. 用户 {uid}：{marks} 个诅咒标记，总禁言 {mute_min} 分钟",
+      "curse_random_success": "随机诅咒选中了 @{target} ({id})，继承了 {total} 个诅咒标记喵！",
+      "curse_random_self_half": "\n伤敌一千自损八百！你（@{user}）也获得了 {half} 个诅咒标记（全局累计次数的一半，四舍五入）喵！",
+      "curse_random_self_zero": "\n伤敌一千自损八百！你逃过一劫（总累计为0）",
+      "curse_random_no_total": "随机诅咒选中了 @{target}，但全局累计次数为 0，无人获得标记喵～",
+      "curse_random_reset": "\n全局累计次数已清零喵～",
+      "curse_clear_all": "已清除本群所有诅咒数据（全局诅咒和所有用户标记）喵～",
+      "curse_clear_user_success": "已清除用户 {uid} 的所有诅咒标记喵～",
+      "curse_clear_user_fail": "用户 {uid} 没有诅咒标记喵～",
+      "curse_clear_invalid": "请提供有效的用户ID（数字）喵～",
+      "curse_member_fail": "获取群成员失败，请稍后再试喵～",
+      "curse_no_member": "群里没有其他成员喵～",
+      "pardon_success": "恭喜 @{user} 求饶成功喵！\n你已被解除在群 {group} 的禁言喵～\n本次成功率：{prob}%",
+      "pardon_fail": "很遗憾，求饶失败喵～\n本次成功率：{prob}%\n剩余机会：{remaining} 次\n继续努力，下次可能就成功啦喵！",
+      "pardon_no_muted": "你当前没有被禁言的群喵～",
+      "pardon_list_header": "求饶列表：\n{user}（{id}）",
+      "pardon_list_item": "{idx}. {group_name}（{group_id}）",
+      "pardon_list_tip": "\n发送 `/求饶 [序号]` 进行求饶喵～",
+      "pardon_list_remaining": "你有 {remaining} 次机会喵。",
+      "pardon_invalid_choice": "请提供正确的序号，例如 `/求饶 1` 喵～",
+      "pardon_out_of_range": "序号超出范围，请输入 1-{max} 之间的数字喵～",
+      "pardon_no_chance": "你已经没有求饶机会了喵～",
+      "pardon_unmute_fail": "解除禁言失败喵：{error}\n请确认 Bot 是否拥有管理员权限喵。",
+      "admin_unmute_success": "已成功解除 @{target} 的禁言喵～",
+      "admin_unmute_fail": "解除禁言失败喵：{error}",
+      "petition_success": "已为 {target} 解除禁言喵！\n你（{user}）替 {target} 承担了 {duration} 禁言时间喵～",
+      "petition_all_success": "已为 {count} 人解除禁言喵！\n你（{user}）替所有人承担了 {duration} 禁言时间喵～",
+      "petition_admin_success": "管理员 {user} 替 {target} 解除了禁言喵！",
+      "petition_admin_all_success": "管理员 {user} 替所有人解除了禁言喵！成功 {success} 人",
+      "petition_group_only": "此指令仅可在群聊中使用喵",
+      "petition_no_muted": "当前群组内没有被禁言的用户喵～",
+      "petition_user_not_muted": "该用户当前没有被禁言喵～",
+      "petition_user_expired": "该用户禁言已过期，无需求情喵～",
+      "petition_self": "不能自己替自己求情喵～",
+      "petition_helper_muted": "帮助求情的人不能被求情喵！",
+      "petition_all_expired": "所有用户禁言已过期，无需求情喵～",
+      "petition_invalid_param": "请提供有效的序号或 `全部` 喵～",
+      "petition_out_of_range": "序号超出范围，请输入 1-{max} 喵～",
+      "petition_all_fail": "全部解禁失败，无法继续给自己禁言喵～",
+      "petition_self_mute_fail": "已解除 {count} 人禁言，但给自己禁言失败喵：{error}",
+      "petition_unmute_fail": "解除 {target} 禁言失败喵：{error}",
+      "petition_group_message_single": "好人一生平安，{user}替{target}背负了一半喵！{target}你自由啦喵！",
+      "petition_group_message_all": "好人一生平安，{user}替所有人背负了一半喵！大家都自由啦喵！",
+      "help_gift_fail": "老大你替别人使用大礼包失败了喵！",
+      "help_gift_success": "帮 @{user} 使用大礼包成功喵！",
+      "help_gift_disabled": "替别人使用大礼包功能已关闭喵～",
+      "help_gift_admin_target": "不能对管理员使用大礼包喵～",
+      "help_gift_curse_warning": "你现在诅咒缠身喔！不能规避诅咒喵！",
+      "admin_unmute_all_start": "正在解除 {total} 位用户的禁言喵～",
+      "admin_unmute_all_success": "全部解除完成！成功 {success} 人喵～",
+      "admin_unmute_all_fail": "，失败 {fail} 人：{details}",
+      "refresh_cache_start": "正在从服务器同步禁言列表喵～",
+      "refresh_cache_success": "缓存已刷新，当前被禁言用户：",
+      "refresh_cache_empty": "缓存已刷新，当前没有被禁言的用户喵～",
+      "refresh_cache_fail": "刷新缓存失败，请检查日志喵～",
+      "refresh_cache_group_only": "此指令仅可在群聊中使用喵",
+      "refresh_cache_no_self": "无法获取机器人自身信息喵～",
+      "refresh_cache_bot_no_admin": "机器人没有本群管理员权限，无法获取禁言列表喵～",
+      "vote_passed_immediate": "投票通过（同意数 {agree} ＞ {disagree} 票）！已解除 @{target} ({id}) 的禁言喵～",
+      "vote_passed_end": "投票结束（同意 {agree} 票，不同意 {disagree} 票），达到最低票数且同意多于反对，已解除 @{target} ({id}) 的禁言喵～",
+      "vote_failed_end": "投票结束（同意 {agree} 票，不同意 {disagree} 票），{reasons}，未解禁 {target} 喵～",
+      "vote_already_unmuted": "投票结束，但用户 {target} 已被解禁，无需重复操作喵～",
+      "vote_already_voted": "您已对此投票表达过意见喵～",
+      "vote_expired": "投票已过期或不存在喵～",
+      "vote_no_vote": "当前没有进行中的投票喵～",
+      "vote_agree_success": "您已同意解禁 @{target} ({result})",
+      "vote_disagree_success": "您已拒绝解禁 @{target} ({result})",
+      "vote_already_exist": "该用户已有进行中的投票，请耐心等待喵～",
+      "vote_initiator": "用户 {initiator} 发起了解禁 {target} 的投票喵！\n请群友回复 `/同意` 或 `/不同意` 进行表决喵～\n（{duration}秒后自动截止）",
+      "command_group_only": "此指令仅可在群聊中使用喵",
+      "config_sync_fail": "配置同步失败，无可用奖品喵！",
+      "lottery_daily_limit_reached": "你今天已经抽了 {limit} 次大礼包喵，明天再来吧～",
+      "command_cooldown": "操作过于频繁喵，请 {seconds} 秒后再试～",
+      "group_blocked": "本群暂未开放此功能喵～",
+      "lottery_history_title": "【{user}的抽奖历史】",
+      "lottery_history_item": "{idx}. {time} → {prize}（{duration}）",
+      "lottery_history_empty": "没有抽奖记录喵～",
+      "lottery_history_footer": "共 {total} 条记录，显示最近 {show} 条"
+    }
+  }
+}
