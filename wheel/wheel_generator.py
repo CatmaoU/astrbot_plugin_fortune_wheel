@@ -58,7 +58,7 @@ def generate_weighted_wheel_gif(options: list, weights: list, output_path: str, 
                     if index is not None:
                         return ImageFont.truetype(path, size, index=index)
                     return ImageFont.truetype(path, size)
-                except:
+                except Exception:
                     continue
         return ImageFont.load_default()
     

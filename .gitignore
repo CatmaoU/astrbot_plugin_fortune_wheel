@@ -19,6 +19,7 @@ build/
 
 # AstrBot Plugin
 cache/
+.backup_v*/
 *.log
 
 # OS

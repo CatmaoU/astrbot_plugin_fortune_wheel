@@ -1,3 +1,29 @@
+# 更新日志
+
+## v1.1.0 - 2026-08-16
+
+### 重构
+- **接入原生 AstrBotConfig**：插件 `__init__` 现在接收 AstrBot 注入的配置对象（依据 `_conf_schema.json`），删除手写的 `ConfigManager` 双缓存（cache_config.json/cache_config.txt）与 mtime 比对机制。`/重载配置` 从磁盘重读并原地更新。
+- **数据目录迁移**：所有持久化数据（禁言缓存、诅咒数据、抽奖历史、每日计数、求情者名单）从插件自身 `cache/` 目录迁移到 `data/plugin_data/astrbot_plugin_fortune_wheel/`，启动时自动搬迁旧数据，防止更新/重装插件丢数据（对齐官方存储规范）。
+- **配置应用统一化**：新增 `_apply_config()`，`__init__` 与 `/重载配置` 共用一套字段解析，类型转换失败回退默认值，避免重载半途崩溃；删除重复的 pardon_stages 解析逻辑。
+
+### 修复
+- **轮盘 GIF 生成阻塞事件循环**：`generate_main_wheel`/`generate_sub_wheel` 移入线程池（`asyncio.to_thread`），不再卡住 AstrBot 事件循环。
+- **JSON 非原子写**：全部数据写入改为"临时文件 + os.replace"原子写，进程崩溃不再导致数据文件损坏重置。
+- **抽奖历史并发覆盖**：`LotteryHistory.add_record` 加 `asyncio.Lock` 并改为异步写入。
+- **投票结算依赖过期 event**：`_vote_checker` 改用发起时快照的 `bot`/`self_id` + `unified_msg_origin`（`context.send_message`），bot 断线重连后投票结果仍可正常发送。
+- **消息模板 `.format()` 崩溃**：统一捕获 `KeyError/ValueError/IndexError`，模板含未配对花括号不再导致指令崩溃。
+- **替别人使用后禁言时长浮点显示**：`final_minutes` 统一 `int(round(...))`，不再显示 "10.0 分钟"。
+- **重载配置奖池缓存失效无效**：修正为通过模块对象修改 `prize_loader` 缓存（原 `global` 写法只改了局部变量）。
+- **裸 `except:`** 全部改为 `except Exception`（多处）。
+- **重复 `get_message`**：删除 `CoreMixin` 中与 `main.py` 重复且逻辑更弱的实现。
+- **死代码**：删除 `gift_mixin` 中重复计算的诅咒参数过滤块、`normalize_weights` 恒等函数。
+
+### 规范
+- `metadata.yaml` 版本号去掉 `v` 前缀（`1.1.0`），与插件市场规范一致。
+- 配置默认值统一：`gif_loop` 默认 `false`、`enable_sub_wheel` 默认 `true`（与 `_conf_schema.json` 一致）。
+
+
 ## v1.0.7 - 2026-08-10
 
 ### 移除

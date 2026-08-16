@@ -37,9 +37,6 @@ def parse_range(name: str):
         return val * unit_multiplier, val * unit_multiplier, unit_multiplier
     return 0, 0, None
 
-def normalize_weights(prizes: list, weights: list) -> list:
-    return weights
-
 def format_duration(minutes: int) -> str:
     if minutes < 60:
         return f"{minutes} 分钟"

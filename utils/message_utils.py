@@ -35,6 +35,6 @@ class MessageManager:
             return default
         try:
             return template.format(**kwargs)
-        except KeyError as e:
+        except (KeyError, ValueError, IndexError) as e:
             logger.warning(f"消息模板缺少占位符: {e}, key={key}")
             return template

@@ -1,32 +1,23 @@
 import os
-import json
 import time
 import asyncio
 from typing import Dict, List, Any
 from astrbot.api import logger
+from ..utils.storage import atomic_write_json, safe_read_json
 
 class CacheManager:
-    def __init__(self, plugin_dir: str):
-        self.plugin_dir = plugin_dir
-        self.cache_dir = os.path.join(plugin_dir, "cache")
-        self.cache_file = os.path.join(self.cache_dir, "muted_cache.json")
-        os.makedirs(self.cache_dir, exist_ok=True)
+    def __init__(self, data_dir: str):
+        self.data_dir = data_dir
+        self.cache_file = os.path.join(data_dir, "muted_cache.json")
+        os.makedirs(data_dir, exist_ok=True)
         self.lock = asyncio.Lock()
 
     def _load_cache(self) -> Dict:
-        if not os.path.exists(self.cache_file):
-            return {}
-        try:
-            with open(self.cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"加载缓存失败: {e}")
-            return {}
+        return safe_read_json(self.cache_file, {})
 
     def _save_cache(self, data):
         try:
-            with open(self.cache_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            atomic_write_json(self.cache_file, data)
         except Exception as e:
             logger.error(f"保存缓存失败: {e}")
 

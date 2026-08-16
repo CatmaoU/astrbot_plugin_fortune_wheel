@@ -62,7 +62,7 @@ def require_permission(global_admins_getter):
                     return
             else:
                 # 检查群组黑白名单
-                raw_cfg = self.config_manager.load_config()
+                raw_cfg = getattr(self, "config", {}) or {}
                 mode = raw_cfg.get("group_mode", "blacklist")
                 group_list = raw_cfg.get("group_list", [])
                 if not check_group_permission(group_id, mode, group_list):

@@ -1,35 +1,15 @@
 import os
 import asyncio
 import time
-import json
 from datetime import datetime
 from typing import Dict, List, Optional
 from astrbot.api import logger
 from ..modules.permission_utils import is_bot_admin, check_group_permission
+from ..utils.storage import atomic_write_json, safe_read_json
 
 
 class CoreMixin:
     """核心功能 Mixin：禁言/解禁、冷却、每日限制、求情者管理、自动同步等"""
-
-    # ==================== 消息模板 ====================
-    def get_message(self, key: str, default: str = "", **kwargs) -> str:
-        raw_cfg = self.config_manager.load_config()
-        template = raw_cfg.get(key)
-        if template is not None:
-            try:
-                return template.format(**kwargs)
-            except KeyError as e:
-                logger.warning(f"消息模板 {key} 缺少占位符: {e}")
-                return template
-        templates = raw_cfg.get("message_templates", {})
-        template = templates.get(key)
-        if template is None:
-            return default
-        try:
-            return template.format(**kwargs)
-        except KeyError as e:
-            logger.warning(f"消息模板 {key} 缺少占位符: {e}")
-            return template
 
     # ==================== 清理临时文件 ====================
     async def _cleanup_files(self, paths: list):
@@ -42,27 +22,16 @@ class CoreMixin:
 
     # ==================== 每日抽奖计数 ====================
     def _load_daily_count(self):
-        if os.path.exists(self._daily_lottery_count_file):
-            try:
-                with open(self._daily_lottery_count_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                today = datetime.now().strftime("%Y-%m-%d")
-                if data.get("date") != today:
-                    self._daily_lottery_count = {"date": today, "counts": {}}
-                else:
-                    self._daily_lottery_count = data
-            except:
-                today = datetime.now().strftime("%Y-%m-%d")
-                self._daily_lottery_count = {"date": today, "counts": {}}
-        else:
-            today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now().strftime("%Y-%m-%d")
+        data = safe_read_json(self._daily_lottery_count_file, {})
+        if data.get("date") != today or "counts" not in data:
             self._daily_lottery_count = {"date": today, "counts": {}}
+        else:
+            self._daily_lottery_count = data
 
     def _save_daily_count(self):
         try:
-            os.makedirs(os.path.dirname(self._daily_lottery_count_file), exist_ok=True)
-            with open(self._daily_lottery_count_file, "w", encoding="utf-8") as f:
-                json.dump(self._daily_lottery_count, f, ensure_ascii=False, indent=2)
+            atomic_write_json(self._daily_lottery_count_file, self._daily_lottery_count)
         except Exception as e:
             logger.error(f"保存每日抽奖计数失败: {e}")
 
@@ -103,23 +72,14 @@ class CoreMixin:
 
     # ==================== 主动求情者名单 ====================
     def _load_petition_helpers(self):
-        if os.path.exists(self._petition_helpers_file):
-            try:
-                with open(self._petition_helpers_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                self.petition_helpers = set(data)
-                logger.info(f"[求情] 加载主动求情者名单，共 {len(self.petition_helpers)} 人")
-            except Exception as e:
-                logger.error(f"[求情] 加载主动求情者名单失败: {e}")
-                self.petition_helpers = set()
-        else:
-            self.petition_helpers = set()
+        data = safe_read_json(self._petition_helpers_file, [])
+        self.petition_helpers = set(data) if isinstance(data, list) else set()
+        if self.petition_helpers:
+            logger.info(f"[求情] 加载主动求情者名单，共 {len(self.petition_helpers)} 人")
 
     def _save_petition_helpers(self):
         try:
-            os.makedirs(os.path.dirname(self._petition_helpers_file), exist_ok=True)
-            with open(self._petition_helpers_file, "w", encoding="utf-8") as f:
-                json.dump(list(self.petition_helpers), f, ensure_ascii=False, indent=2)
+            atomic_write_json(self._petition_helpers_file, list(self.petition_helpers))
         except Exception as e:
             logger.error(f"[求情] 保存主动求情者名单失败: {e}")
 
@@ -139,22 +99,26 @@ class CoreMixin:
         return user_id in self.petition_helpers
 
     # ==================== 核心禁言/解禁方法 ====================
-    async def _execute_mute_with_cache(self, event, group_id: int, user_id: int, duration_minutes: int, source: str = "lottery"):
+    async def _execute_mute_with_cache(self, event, group_id: int, user_id: int, duration_minutes: int,
+                                       source: str = "lottery", *, bot=None, self_id=None):
+        """执行禁言并更新缓存。bot/self_id 可显式传入（用于延迟任务，避免 event 失效）。"""
         if duration_minutes <= 0:
             return False, "禁言时间必须大于0"
+        bot = bot if bot is not None else event.bot
+        sid = self_id if self_id is not None else event.get_self_id()
         try:
             await asyncio.wait_for(
-                event.bot.set_group_ban(
+                bot.set_group_ban(
                     group_id=group_id,
                     user_id=user_id,
                     duration=duration_minutes * 60,
-                    self_id=event.get_self_id()
+                    self_id=sid
                 ),
                 timeout=10.0
             )
             try:
                 info = await asyncio.wait_for(
-                    event.bot.call_action(
+                    bot.call_action(
                         "get_group_member_info",
                         group_id=group_id,
                         user_id=user_id,
@@ -163,7 +127,7 @@ class CoreMixin:
                     timeout=10.0
                 )
                 nickname = info.get('nickname') or info.get('card') or f"用户{user_id}"
-            except:
+            except Exception:
                 nickname = f"用户{user_id}"
             await self.cache_mgr.add_muted(group_id, user_id, nickname, duration_minutes, source)
             self._reset_pardon_data(user_id)
@@ -175,14 +139,18 @@ class CoreMixin:
         except Exception as e:
             return False, str(e)
 
-    async def _execute_unmute(self, event, group_id: int, user_id: int, source: str = ""):
+    async def _execute_unmute(self, event, group_id: int, user_id: int, source: str = "",
+                              *, bot=None, self_id=None):
+        """解除禁言并更新缓存。bot/self_id 可显式传入（用于延迟任务，避免 event 失效）。"""
+        bot = bot if bot is not None else event.bot
+        sid = self_id if self_id is not None else event.get_self_id()
         try:
             await asyncio.wait_for(
-                event.bot.set_group_ban(
+                bot.set_group_ban(
                     group_id=group_id,
                     user_id=user_id,
                     duration=0,
-                    self_id=event.get_self_id()
+                    self_id=sid
                 ),
                 timeout=10.0
             )

@@ -1,13 +1,12 @@
 import os
-import json
-import time
 import asyncio
 from datetime import datetime
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Tuple, List
 from astrbot.api import logger
+from ..utils.storage import atomic_write_json, safe_read_json
 
 class CurseManager:
-    def __init__(self, plugin_dir: str, enabled: bool = True, 
+    def __init__(self, data_dir: str, enabled: bool = True, 
                  max_marks: int = 5,
                  trigger_base_prob: float = 5.0,
                  trigger_prob_increment: float = 10.0,
@@ -22,9 +21,9 @@ class CurseManager:
         self.trigger_weight_bonus = trigger_weight_bonus
         self.daily_limit = daily_limit
 
-        self.cache_dir = os.path.join(plugin_dir, "cache")
-        self.cache_file = os.path.join(self.cache_dir, "curse_data.json")
-        os.makedirs(self.cache_dir, exist_ok=True)
+        self.data_dir = data_dir
+        self.cache_file = os.path.join(data_dir, "curse_data.json")
+        os.makedirs(data_dir, exist_ok=True)
         self.lock = asyncio.Lock()
         self._data = {}
 
@@ -35,14 +34,13 @@ class CurseManager:
         if not self.enabled:
             return
         if os.path.exists(self.cache_file):
-            try:
-                with open(self.cache_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+            data = safe_read_json(self.cache_file, {})
+            if isinstance(data, dict):
                 self._data = data
                 logger.info(f"[诅咒] 从缓存加载数据，共 {len(self._data)} 个群")
-            except Exception as e:
-                logger.error(f"[诅咒] 加载缓存失败: {e}")
+            else:
                 self._data = {}
+                logger.error(f"[诅咒] 缓存数据格式非法，已重置")
         else:
             self._data = {}
 
@@ -50,8 +48,7 @@ class CurseManager:
         if not self.enabled:
             return
         try:
-            with open(self.cache_file, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, ensure_ascii=False, indent=2)
+            atomic_write_json(self.cache_file, self._data)
             logger.debug("[诅咒] 数据已保存")
         except Exception as e:
             logger.error(f"[诅咒] 保存缓存失败: {e}")

@@ -1,12 +1,20 @@
 import asyncio
 import time
 from astrbot.api import logger
+from astrbot.api.event import MessageChain
 from astrbot.api.message_components import At
 from ..modules.permission_utils import is_user_admin, is_bot_admin
 
 class VoteMixin:
     """投票解禁功能"""
-    
+
+    async def _send_active(self, umo: str, msg: str):
+        """通过 unified_msg_origin 主动发消息（不依赖发起时的 event，bot 重连后仍可用）"""
+        try:
+            await self.context.send_message(umo, MessageChain().message(msg))
+        except Exception as e:
+            logger.error(f"发送主动消息失败: {e}")
+
     async def admin_pardon_logic(self, event):
         group_id = event.message_obj.group_id
         if not group_id:
@@ -116,9 +124,15 @@ class VoteMixin:
             duration=duration_sec,
             default="用户 {initiator} 发起了解禁 {target} 的投票！\n请群友回复 `/同意` 或 `/不同意` 进行表决\n（{duration}秒后自动截止）"
         ))
-        asyncio.create_task(self._vote_checker(group_id, target_id, event))
+        # 快照 bot/self_id/umo，避免异步结算时依赖已失效的 event
+        asyncio.create_task(self._vote_checker(
+            group_id, target_id,
+            bot=event.bot,
+            self_id=event.get_self_id(),
+            umo=event.unified_msg_origin
+        ))
 
-    async def _vote_checker(self, group_id, target_id, event):
+    async def _vote_checker(self, group_id, target_id, bot=None, self_id=None, umo=None):
         await asyncio.sleep(self.vote_mgr.duration_seconds)
         vote_data = self.vote_mgr.pop_vote(group_id, target_id)
         if vote_data is None:
@@ -126,10 +140,8 @@ class VoteMixin:
         muted_list = await self.cache_mgr.get_muted(group_id)
         if target_id not in [u["user_id"] for u in muted_list]:
             msg = self.get_message("vote_already_unmuted", target=target_id, default="投票结束，但用户 {target} 已被解禁，无需重复操作喵～")
-            try:
-                await event.bot.call_action("send_group_msg", group_id=group_id, message=msg)
-            except Exception as e:
-                logger.error(f"发送投票结果失败: {e}")
+            if umo:
+                await self._send_active(umo, msg)
             return
         agree = len(vote_data["agree_set"])
         disagree = len(vote_data["disagree_set"])
@@ -137,7 +149,7 @@ class VoteMixin:
         required = self.vote_mgr.required_agree
 
         if agree >= required and agree > disagree:
-            success, err = await self._execute_unmute(event, group_id, target_id)
+            success, err = await self._execute_unmute(None, group_id, target_id, bot=bot, self_id=self_id)
             if success:
                 msg = self.get_message("vote_passed_end",
                     agree=agree, disagree=disagree,
@@ -159,10 +171,8 @@ class VoteMixin:
                 target=target_name,
                 default="投票结束（同意 {agree} 票，不同意 {disagree} 票），{reasons}，未解禁 {target} 喵～"
             )
-        try:
-            await event.bot.call_action("send_group_msg", group_id=group_id, message=msg)
-        except Exception as e:
-            logger.error(f"发送投票结果失败: {e}")
+        if umo:
+            await self._send_active(umo, msg)
 
     async def vote_agree_logic(self, event):
         group_id = event.message_obj.group_id

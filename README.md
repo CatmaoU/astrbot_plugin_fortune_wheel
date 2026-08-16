@@ -40,6 +40,10 @@
 pip install -r requirements.txt
 ```
 
+> 插件配置通过 AstrBot 管理面板（依据 `_conf_schema.json`）直接修改，保存后生效；修改后可用 `/重载配置` 热重载。
+>
+> 持久化数据（禁言缓存、诅咒数据、抽奖历史等）存储于 AstrBot 的 `data/plugin_data/astrbot_plugin_fortune_wheel/` 目录，更新/重装插件不会丢失；旧版本存于插件 `cache/` 目录的数据会在启动时自动搬迁。
+
 ### 配置项
 
 | 配置项 | 类型 | 默认值 | 说明 |

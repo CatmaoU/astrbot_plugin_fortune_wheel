@@ -1,5 +1,4 @@
 import random
-import time
 from astrbot.api import logger
 from astrbot.api.message_components import At
 from ..modules.permission_utils import is_user_admin
@@ -29,7 +28,7 @@ class CurseMixin:
                         no_cache=True
                     )
                     target_name = info.get('nickname') or info.get('card') or str(target_id)
-                except:
+                except Exception:
                     target_name = str(target_id)
                 break
 

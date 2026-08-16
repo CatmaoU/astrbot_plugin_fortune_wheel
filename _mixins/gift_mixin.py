@@ -15,6 +15,10 @@ from ..modules.permission_utils import is_user_admin
 class GiftMixin:
     """大礼包抽奖核心功能"""
 
+    async def _generate_wheel(self, generator, **kwargs) -> str:
+        """在独立线程中生成轮盘 GIF，避免阻塞 asyncio 事件循环。"""
+        return await asyncio.to_thread(generator, **kwargs)
+
     async def mute_lottery_logic(self, event):
         args = event.message_str.strip().split()
         if len(args) > 1 and args[1] in ("帮助", "help", "--help", "-h"):
@@ -81,12 +85,6 @@ class GiftMixin:
                 yield event.plain_result(self.get_message("help_gift_admin_target", default="不能对管理员使用大礼包喵～"))
                 return
 
-            marks = await self.curse_mgr.get_marks(group_id, target_user_id)
-            if marks > 0:
-                params = [p for p in args[1:] if not (re.fullmatch(r'\d+', p) or re.fullmatch(r'\d+-\d+', p))]
-                args = [args[0]] + params
-                yield event.plain_result(self.get_message("help_gift_curse_warning", default="你现在诅咒缠身喔！不能规避诅咒喵！"))
-
             sender_is_admin = await is_user_admin(event.bot, group_id, sender_id, self.global_admins)
             if not sender_is_admin:
                 if random.random() >= self.help_gift_success_rate:
@@ -130,11 +128,12 @@ class GiftMixin:
             curse_msg += self.get_message("curse_low_bonus", bonus=low_bonus, default="本群低权重物品累计加成 +{bonus}") + "\n"
 
         # ========== 加载奖品 ==========
-        prizes, weights, prize_durations = load_prizes(self.config_manager)
+        prizes, weights, prize_durations = load_prizes(self.config)
         if not prizes:
             yield event.plain_result(self.get_message("config_sync_fail", default="配置同步失败，无可用奖品喵！"))
             return
 
+        # 诅咒缠身时移除数字/区间参数，不能规避诅咒
         params = args[1:] if len(args) > 1 else []
         if marks > 0:
             params = [p for p in params if not (re.fullmatch(r'\d+', p) or re.fullmatch(r'\d+-\d+', p))]
@@ -161,7 +160,7 @@ class GiftMixin:
                 yield event.plain_result(self.get_message("mute_time_zero", default="禁言时间必须大于 0 分钟喵。"))
                 return
 
-            final_minutes = mute_minutes * penalty_multiplier
+            final_minutes = int(round(mute_minutes * penalty_multiplier))
             if final_minutes == 0:
                 yield event.plain_result(self.get_message("mute_participation", default="你抽中了重在参与！什么都不会发生喵～"))
                 return
@@ -175,7 +174,7 @@ class GiftMixin:
                 return
 
             prize_name = f"{mute_minutes}分钟"
-            self.lottery_history.add_record(
+            await self.lottery_history.add_record(
                 user_id=target_user_id,
                 prize=prize_name,
                 duration=format_duration(final_minutes),
@@ -244,14 +243,12 @@ class GiftMixin:
                     custom_range = True
                 else:
                     yield event.plain_result(self.get_message("mute_range_invalid", default="参数范围无效喵～"))
-            except:
+            except Exception:
                 yield event.plain_result(self.get_message("mute_range_format", default="参数格式错误喵～"))
 
         # ========== 生成轮盘 ==========
         timestamp = int(time.time() * 1000)
-        cache_dir = os.path.join(self.plugin_dir, "cache")
-        os.makedirs(cache_dir, exist_ok=True)
-        gif_path = os.path.join(cache_dir, f"gift_wheel_{timestamp}.gif")
+        gif_path = os.path.join(self.data_dir, f"gift_wheel_{timestamp}.gif")
         sub_gif_path = None
         files_to_delete = [gif_path]
 
@@ -259,7 +256,8 @@ class GiftMixin:
             if custom_range:
                 temp_prizes = [f"{min_val}-{max_val}分钟"]
                 temp_weights = [100]
-                winner_name = generate_main_wheel(
+                winner_name = await self._generate_wheel(
+                    generate_main_wheel,
                     prizes=temp_prizes,
                     weights=temp_weights,
                     output_path=gif_path,
@@ -270,7 +268,8 @@ class GiftMixin:
                 mute_minutes = random.randint(min_val, max_val)
                 prob_str = "100.00000%"
             else:
-                winner_name = generate_main_wheel(
+                winner_name = await self._generate_wheel(
+                    generate_main_wheel,
                     prizes=prizes,
                     weights=weights,
                     output_path=gif_path,
@@ -306,10 +305,11 @@ class GiftMixin:
                                 sub_options.append(f"{i}{unit}")
                         sub_weights = [100.0 / len(sub_options)] * len(sub_options)
                         sub_timestamp = int(time.time() * 1000)
-                        sub_gif_path = os.path.join(cache_dir, f"gift_sub_wheel_{sub_timestamp}.gif")
+                        sub_gif_path = os.path.join(self.data_dir, f"gift_sub_wheel_{sub_timestamp}.gif")
                         files_to_delete.append(sub_gif_path)
 
-                        sub_winner_name = generate_sub_wheel(
+                        sub_winner_name = await self._generate_wheel(
+                            generate_sub_wheel,
                             prizes=sub_options,
                             weights=sub_weights,
                             output_path=sub_gif_path,
@@ -333,7 +333,7 @@ class GiftMixin:
 
             await asyncio.sleep(self.mute_delay)
 
-            final_minutes = mute_minutes * penalty_multiplier
+            final_minutes = int(round(mute_minutes * penalty_multiplier))
             if final_minutes == 0:
                 yield event.plain_result(self.get_message("mute_participation", default="你抽中了重在参与！什么都不会发生喵～"))
                 return
@@ -347,7 +347,7 @@ class GiftMixin:
                 return
 
             if success:
-                self.lottery_history.add_record(
+                await self.lottery_history.add_record(
                     user_id=target_user_id,
                     prize=winner_name,
                     duration=format_duration(final_minutes),

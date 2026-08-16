@@ -1,8 +1,6 @@
 import os
 import asyncio
 import time
-import json
-from datetime import datetime
 from typing import Dict
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
@@ -15,8 +13,9 @@ from .modules.cache_manager import CacheManager
 from .modules.curse_manager import CurseManager
 from .modules.vote_manager import VoteManager
 from .modules.lottery_history import LotteryHistory
-from .modules.permission_utils import is_bot_admin, require_permission, check_group_permission
+from .modules.permission_utils import is_bot_admin, require_permission
 from .utils.message_utils import MessageManager
+from .utils.storage import get_plugin_data_dir
 
 from ._mixins.core_mixin import CoreMixin
 from ._mixins.help_mixin import HelpMixin
@@ -26,92 +25,53 @@ from ._mixins.vote_mixin import VoteMixin
 from ._mixins.petition_mixin import PetitionMixin
 from ._mixins.unmute_mixin import UnmuteMixin
 
+# 旧版本持久化文件名（用于从插件 cache/ 目录自动搬迁）
+_LEGACY_DATA_FILES = (
+    "muted_cache.json",
+    "curse_data.json",
+    "lottery_history.json",
+    "daily_lottery_count.json",
+    "petition_helpers.json",
+)
+
 
 @register(
     "astrbot_plugin_fortune_wheel",
     "iMuli",
     "大礼包轮盘",
-    "1.0.7"
+    "1.1.0"
 )
 class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteMixin, PetitionMixin, UnmuteMixin):
-    def __init__(self, context: Context, **kwargs):
+    def __init__(self, context: Context, config=None, **kwargs):
         super().__init__(context)
         self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
-        self.config_manager = ConfigManager(self.plugin_dir)
-        self.config_manager.sync_json_to_txt()
 
-        raw_cfg = self.config_manager.load_config()
+        # 原生配置：AstrBot 依据 _conf_schema.json 自动注入（AstrBotConfig）
+        self.config = config if isinstance(config, dict) else {}
+        self.config_manager = ConfigManager(self.config, self.plugin_dir)
 
-        self.show_arrow = raw_cfg.get("show_arrow", True)
-        self.enable_sub_wheel = raw_cfg.get("enable_sub_wheel", False)
-        self.show_mute_msg = raw_cfg.get("show_mute_msg", True)
-        self.main_wheel_delay = float(raw_cfg.get("main_wheel_delay", 6.5))
-        self.sub_wheel_delay = float(raw_cfg.get("sub_wheel_delay", 3.0))
-        self.mute_delay = float(raw_cfg.get("mute_delay", 1.5))
-        self.main_wheel_duration = float(raw_cfg.get("main_wheel_duration", 7.0))
-        self.sub_wheel_duration = float(raw_cfg.get("sub_wheel_duration", 3.0))
+        # 持久化数据目录：data/plugin_data/<plugin_name>/（防止更新插件丢数据）
+        self.data_dir = get_plugin_data_dir(fallback_dir=os.path.join(self.plugin_dir, "cache"))
+        self._migrate_legacy_data()
 
-        self.pardon_enabled = raw_cfg.get("pardon_enabled", True)
-        self.bot_name = raw_cfg.get("bot_name", "小号") or "小号"
-        self.pardon_command = "求饶"
-        raw_stages = raw_cfg.get("pardon_stages", ["1:12.5", "2:25", "3:50"])
-        self.pardon_probabilities = []
-        for item in raw_stages:
-            if isinstance(item, str) and ":" in item:
-                parts = item.split(":", 1)
-                try:
-                    self.pardon_probabilities.append(float(parts[1].strip()))
-                except:
-                    continue
-        if not self.pardon_probabilities:
-            self.pardon_probabilities = [12.5, 25, 50]
-        self.pardon_attempts = len(self.pardon_probabilities)
-        self.user_pardon_data = {}
-
-        self.cache_mgr = CacheManager(self.plugin_dir)
-
-        self.curse_mgr = CurseManager(
-            self.plugin_dir,
-            enabled=raw_cfg.get("curse_enabled", True),
-            max_marks=int(raw_cfg.get("curse_max_marks", 5)),
-            trigger_base_prob=float(raw_cfg.get("curse_trigger_base_prob", 5.0)),
-            trigger_prob_increment=float(raw_cfg.get("curse_trigger_prob_increment", 10.0)),
-            low_weight_bonus=float(raw_cfg.get("curse_low_weight_bonus", 20.0)),
-            trigger_weight_bonus=float(raw_cfg.get("curse_trigger_weight_bonus", 50.0)),
-            daily_limit=int(raw_cfg.get("curse_daily_limit", 1))
-        )
-        self.curse_transfer_success_rate = float(raw_cfg.get("curse_transfer_success_rate", 0.5))
-        self.global_admins = raw_cfg.get("global_admins", [])
-
-        self.help_gift_enabled = raw_cfg.get("help_gift_enabled", True)
-        self.help_gift_success_rate = float(raw_cfg.get("help_gift_success_rate", 0.15))
-        self.help_gift_penalty_multiplier = float(raw_cfg.get("help_gift_penalty_multiplier", 1.0))
-
-        self.vote_mgr = VoteManager(
-            required_agree=int(raw_cfg.get("vote_required_agree", 2)),
-            duration_seconds=int(raw_cfg.get("vote_duration_seconds", 120))
-        )
-        self.gif_loop = raw_cfg.get("gif_loop", True)
-        self.auto_sync_interval = int(raw_cfg.get("auto_sync_interval", 300))
-
-        self.daily_lottery_limit = int(raw_cfg.get("daily_lottery_limit", -1))
-        self.command_cooldown_seconds = float(raw_cfg.get("command_cooldown_seconds", 15.0))
-        self.group_mode = raw_cfg.get("group_mode", "blacklist")
-        self.group_list = raw_cfg.get("group_list", [])
-        self.petition_enabled = raw_cfg.get("petition_enabled", True)
-
-        self.message_mgr = MessageManager(raw_cfg)
-
-        self.lottery_history = LotteryHistory(self.plugin_dir)
+        # ========== 组件初始化 ==========
+        self.cache_mgr = CacheManager(self.data_dir)
+        self.curse_mgr = CurseManager(self.data_dir)
+        self.vote_mgr = VoteManager()
+        self.lottery_history = LotteryHistory(self.data_dir)
 
         self._last_command_time: Dict[int, float] = {}
 
-        self._daily_lottery_count_file = os.path.join(self.plugin_dir, "cache", "daily_lottery_count.json")
+        self._daily_lottery_count_file = os.path.join(self.data_dir, "daily_lottery_count.json")
         self._daily_lottery_count: Dict[str, int] = {}
-        self._load_daily_count()
-
-        self._petition_helpers_file = os.path.join(self.plugin_dir, "cache", "petition_helpers.json")
+        self._petition_helpers_file = os.path.join(self.data_dir, "petition_helpers.json")
         self.petition_helpers = set()
+        self.user_pardon_data = {}
+
+        # 统一从配置应用所有字段（含类型安全转换）
+        self._apply_config(self.config)
+
+        self._load_daily_count()
         self._load_petition_helpers()
 
         self._bot = None
@@ -131,18 +91,103 @@ class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteM
             else:
                 logger.warning("[缓存] 自动刷新已禁用（无 Bot 实例）")
 
+    # ==================== 数据迁移 ====================
+    def _migrate_legacy_data(self):
+        """把旧版本存于插件 cache/ 目录的数据搬迁到 data/plugin_data/。"""
+        legacy_dir = os.path.join(self.plugin_dir, "cache")
+        if not os.path.isdir(legacy_dir) or os.path.abspath(legacy_dir) == os.path.abspath(self.data_dir):
+            return
+        for fname in _LEGACY_DATA_FILES:
+            src = os.path.join(legacy_dir, fname)
+            dst = os.path.join(self.data_dir, fname)
+            if os.path.exists(src) and not os.path.exists(dst):
+                try:
+                    os.replace(src, dst)
+                    logger.info(f"[迁移] 已将旧数据 {fname} 搬迁到 {dst}")
+                except Exception as e:
+                    logger.error(f"[迁移] 搬迁 {fname} 失败: {e}")
+
+    # ==================== 配置应用 ====================
+    @staticmethod
+    def _parse_pardon_stages(raw_stages) -> list:
+        probs = []
+        for item in raw_stages or []:
+            if isinstance(item, str) and ":" in item:
+                try:
+                    probs.append(float(item.split(":", 1)[1].strip()))
+                except (TypeError, ValueError):
+                    continue
+        return probs or [12.5, 25, 50]
+
+    def _apply_config(self, cfg: dict) -> None:
+        """把配置应用到全部运行时字段。类型转换失败时回退默认值，保证重载不半途崩溃。"""
+        def _float(key, default):
+            try:
+                return float(cfg.get(key, default))
+            except (TypeError, ValueError):
+                return default
+
+        def _int(key, default):
+            try:
+                return int(cfg.get(key, default))
+            except (TypeError, ValueError):
+                return default
+
+        def _bool(key, default):
+            v = cfg.get(key, default)
+            return v if isinstance(v, bool) else default
+
+        def _list(key, default):
+            v = cfg.get(key, default)
+            return v if isinstance(v, list) else default
+
+        self.show_arrow = _bool("show_arrow", False)
+        self.enable_sub_wheel = _bool("enable_sub_wheel", True)
+        self.show_mute_msg = _bool("show_mute_msg", True)
+        self.main_wheel_delay = _float("main_wheel_delay", 6.5)
+        self.sub_wheel_delay = _float("sub_wheel_delay", 3.0)
+        self.mute_delay = _float("mute_delay", 1.5)
+        self.main_wheel_duration = _float("main_wheel_duration", 7.0)
+        self.sub_wheel_duration = _float("sub_wheel_duration", 3.0)
+        self.pardon_enabled = _bool("pardon_enabled", True)
+        self.bot_name = cfg.get("bot_name", "小号") or "小号"
+        self.pardon_command = "求饶"
+        self.pardon_probabilities = self._parse_pardon_stages(cfg.get("pardon_stages", ["1:12.5", "2:25", "3:50"]))
+        self.pardon_attempts = len(self.pardon_probabilities)
+        self.curse_transfer_success_rate = _float("curse_transfer_success_rate", 0.5)
+        self.global_admins = _list("global_admins", [])
+        self.help_gift_enabled = _bool("help_gift_enabled", True)
+        self.help_gift_success_rate = _float("help_gift_success_rate", 0.15)
+        self.help_gift_penalty_multiplier = _float("help_gift_penalty_multiplier", 1.0)
+        self.gif_loop = _bool("gif_loop", False)
+        self.auto_sync_interval = _int("auto_sync_interval", 300)
+        self.daily_lottery_limit = _int("daily_lottery_limit", -1)
+        self.command_cooldown_seconds = _float("command_cooldown_seconds", 15.0)
+        self.group_mode = cfg.get("group_mode", "blacklist") or "blacklist"
+        self.group_list = _list("group_list", [])
+        self.petition_enabled = _bool("petition_enabled", True)
+
+        # 组件级配置
+        self.curse_mgr.enabled = _bool("curse_enabled", True)
+        self.curse_mgr.max_marks = _int("curse_max_marks", 5)
+        self.curse_mgr.trigger_base_prob = _float("curse_trigger_base_prob", 5.0)
+        self.curse_mgr.trigger_prob_increment = _float("curse_trigger_prob_increment", 10.0)
+        self.curse_mgr.low_weight_bonus_per_mark = _float("curse_low_weight_bonus", 20.0)
+        self.curse_mgr.trigger_weight_bonus = _float("curse_trigger_weight_bonus", 50.0)
+        self.curse_mgr.daily_limit = _int("curse_daily_limit", 1)
+        self.vote_mgr.required_agree = _int("vote_required_agree", 2)
+        self.vote_mgr.duration_seconds = _int("vote_duration_seconds", 120)
+        self.message_mgr = MessageManager(cfg)
+
     def get_message(self, key: str, default: str = "", **kwargs) -> str:
-        """重写消息获取：优先从根配置读取，再从 message_templates 中读取"""
-        raw_cfg = self.config_manager.load_config()
-        # 1. 优先从根配置获取（用于 mute_success_template 等）
-        template = raw_cfg.get(key)
+        """消息模板获取：优先从根配置读取，其次从 message_templates 读取。"""
+        template = self.config.get(key)
         if template is not None and isinstance(template, str):
             try:
                 return template.format(**kwargs)
-            except KeyError as e:
+            except (KeyError, ValueError, IndexError) as e:
                 logger.warning(f"根消息模板 {key} 缺少占位符: {e}")
                 return template
-        # 2. 否则从 message_templates 中获取
         return self.message_mgr.get_message(key, default, **kwargs)
 
     def _load_help(self) -> str:
@@ -324,7 +369,7 @@ class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteM
                         no_cache=True
                     )
                     target_name = info.get('nickname') or info.get('card') or str(target_id)
-                except:
+                except Exception:
                     target_name = str(target_id)
                 break
         records = self.lottery_history.get_history(target_id, limit=10)
@@ -350,55 +395,13 @@ class GiftLotteryPlugin(Star, CoreMixin, HelpMixin, GiftMixin, CurseMixin, VoteM
     async def reload_config_cmd(self, event: AstrMessageEvent):
         try:
             new_cfg = self.config_manager.reload_config()
-            self.show_arrow = new_cfg.get("show_arrow", True)
-            self.enable_sub_wheel = new_cfg.get("enable_sub_wheel", False)
-            self.show_mute_msg = new_cfg.get("show_mute_msg", True)
-            self.main_wheel_delay = float(new_cfg.get("main_wheel_delay", 6.5))
-            self.sub_wheel_delay = float(new_cfg.get("sub_wheel_delay", 3.0))
-            self.mute_delay = float(new_cfg.get("mute_delay", 1.5))
-            self.main_wheel_duration = float(new_cfg.get("main_wheel_duration", 7.0))
-            self.sub_wheel_duration = float(new_cfg.get("sub_wheel_duration", 3.0))
-            self.pardon_enabled = new_cfg.get("pardon_enabled", True)
-            self.bot_name = new_cfg.get("bot_name", "小号") or "小号"
-            self.pardon_command = "求饶"
-            raw_stages = new_cfg.get("pardon_stages", ["1:12.5", "2:25", "3:50"])
-            self.pardon_probabilities = []
-            for item in raw_stages:
-                if isinstance(item, str) and ":" in item:
-                    parts = item.split(":", 1)
-                    try:
-                        self.pardon_probabilities.append(float(parts[1].strip()))
-                    except:
-                        continue
-            if not self.pardon_probabilities:
-                self.pardon_probabilities = [12.5, 25, 50]
-            self.pardon_attempts = len(self.pardon_probabilities)
-            self.curse_transfer_success_rate = float(new_cfg.get("curse_transfer_success_rate", 0.5))
-            self.global_admins = new_cfg.get("global_admins", [])
-            self.help_gift_enabled = new_cfg.get("help_gift_enabled", True)
-            self.help_gift_success_rate = float(new_cfg.get("help_gift_success_rate", 0.15))
-            self.help_gift_penalty_multiplier = float(new_cfg.get("help_gift_penalty_multiplier", 1.0))
-            self.gif_loop = new_cfg.get("gif_loop", True)
-            self.auto_sync_interval = int(new_cfg.get("auto_sync_interval", 300))
-            self.daily_lottery_limit = int(new_cfg.get("daily_lottery_limit", -1))
-            self.command_cooldown_seconds = float(new_cfg.get("command_cooldown_seconds", 15.0))
-            self.group_mode = new_cfg.get("group_mode", "blacklist")
-            self.group_list = new_cfg.get("group_list", [])
-            self.petition_enabled = new_cfg.get("petition_enabled", True)
-            self.vote_mgr.required_agree = int(new_cfg.get("vote_required_agree", 2))
-            self.vote_mgr.duration_seconds = int(new_cfg.get("vote_duration_seconds", 120))
-            self.curse_mgr.enabled = new_cfg.get("curse_enabled", True)
-            self.curse_mgr.max_marks = int(new_cfg.get("curse_max_marks", 5))
-            self.curse_mgr.trigger_base_prob = float(new_cfg.get("curse_trigger_base_prob", 5.0))
-            self.curse_mgr.trigger_prob_increment = float(new_cfg.get("curse_trigger_prob_increment", 10.0))
-            self.curse_mgr.low_weight_bonus_per_mark = float(new_cfg.get("curse_low_weight_bonus", 20.0))
-            self.curse_mgr.trigger_weight_bonus = float(new_cfg.get("curse_trigger_weight_bonus", 50.0))
-            self.curse_mgr.daily_limit = int(new_cfg.get("curse_daily_limit", 1))
-            self.message_mgr = MessageManager(new_cfg)
-            from .modules.prize_loader import _cached_prizes, _cached_time
-            global _cached_prizes, _cached_time
-            _cached_prizes = None
-            _cached_time = 0
+            if not isinstance(new_cfg, dict):
+                raise ValueError("配置格式错误")
+            self._apply_config(new_cfg)
+            # 失效奖池缓存（需通过模块对象修改，普通 import 赋值无效）
+            from .modules import prize_loader as _pl
+            _pl._cached_prizes = None
+            _pl._cached_time = 0
             yield event.plain_result("✅ 配置重载成功喵！")
         except Exception as e:
             logger.error(f"重载配置失败: {e}")
